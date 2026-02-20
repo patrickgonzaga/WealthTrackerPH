@@ -59,6 +59,71 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     double totalForex = forexes.fold(0, (sum, item) => sum + (item.quantity * item.currentPrice));
     double totalNetWorth = totalSavings + totalStocks + totalDeposits + totalCrypto + totalForex;
 
+    // Calculate month-over-month change
+    Map<String, dynamic> calculateMonthlyChange() {
+      final now = DateTime.now();
+      final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
+      
+      final allAssets = [...savings, ...stocks, ...deposits, ...cryptos, ...forexes];
+      
+      // If no assets, return 0
+      if (allAssets.isEmpty) {
+        return {'percentage': '0', 'isPositive': true, 'isNew': true};
+      }
+      
+      final currentTotal = allAssets.fold(0.0, (sum, asset) {
+        double value = 0;
+        if (asset.runtimeType.toString().contains('Savings')) {
+          value = (asset as dynamic).balance;
+        } else if (asset.runtimeType.toString().contains('TimeDeposit')) {
+          value = (asset as dynamic).principal;
+        } else if (asset.runtimeType.toString().contains('Stock') || 
+                   asset.runtimeType.toString().contains('Crypto') || 
+                   asset.runtimeType.toString().contains('Forex')) {
+          value = (asset as dynamic).quantity * (asset as dynamic).currentPrice;
+        }
+        return sum + value;
+      });
+
+      // Check if we have assets older than 1 month
+      final oldAssets = allAssets.where((asset) => 
+        DateTime.parse((asset as dynamic).createdAt).isBefore(oneMonthAgo)
+      ).toList();
+      
+      if (oldAssets.isEmpty) {
+        // All assets are new (created within last month)
+        return {'percentage': '0', 'isPositive': true, 'isNew': true};
+      }
+
+      // Calculate past value using old assets only
+      final pastTotal = oldAssets.fold(0.0, (sum, asset) {
+        double value = 0;
+        if (asset.runtimeType.toString().contains('Savings')) {
+          value = (asset as dynamic).balance;
+        } else if (asset.runtimeType.toString().contains('TimeDeposit')) {
+          value = (asset as dynamic).principal;
+        } else if (asset.runtimeType.toString().contains('Stock') || 
+                   asset.runtimeType.toString().contains('Crypto') || 
+                   asset.runtimeType.toString().contains('Forex')) {
+          value = (asset as dynamic).quantity * (asset as dynamic).avgPrice;
+        }
+        return sum + value;
+      });
+
+      if (pastTotal == 0) return {'percentage': '0', 'isPositive': true, 'isNew': true};
+      
+      final netChange = currentTotal - pastTotal;
+      final changePercentage = (netChange / pastTotal) * 100;
+      
+      return {
+        'percentage': changePercentage.abs().toStringAsFixed(1),
+        'isPositive': netChange >= 0,
+        'isNew': false
+      };
+    }
+
+    final monthlyChange = calculateMonthlyChange();
+
     return Scaffold(
       body: Stack(
         children: [
@@ -210,15 +275,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppTheme.positive.withOpacity(0.2)),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(LucideIcons.arrowUpRight, color: AppTheme.positive, size: 14),
+                Icon(
+                  monthlyChange['isPositive'] ? LucideIcons.arrowUpRight : LucideIcons.arrowDownRight,
+                  color: monthlyChange['isPositive'] ? AppTheme.positive : AppTheme.negative,
+                  size: 14,
+                ),
                 SizedBox(width: 4),
                 Text(
-                  '+12.4% THIS MONTH',
+                  monthlyChange['isNew'] 
+                    ? 'New portfolio'
+                    : '${monthlyChange['isPositive'] ? '+' : '-'}${monthlyChange['percentage']}% this month',
                   style: TextStyle(
-                    color: AppTheme.positive,
+                    color: monthlyChange['isPositive'] ? AppTheme.positive : AppTheme.negative,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
