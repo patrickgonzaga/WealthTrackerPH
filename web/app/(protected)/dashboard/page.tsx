@@ -54,6 +54,54 @@ export default function DashboardPage() {
     const totalForex = forex.reduce((sum, f) => sum + (f.quantity * f.current_price), 0);
     const totalNetWorth = totalSavings + totalStocks + totalDeposits + totalCrypto + totalForex;
 
+    // Calculate month-over-month change
+    const calculateMonthlyChange = () => {
+        const now = new Date();
+        const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        
+        const allAssets = [...savings, ...stocks, ...deposits, ...crypto, ...forex];
+        
+        const currentTotal = allAssets.reduce((sum, asset) => {
+            let value = 0;
+            if ('balance' in asset) {
+                value = asset.balance;
+            } else if ('principal' in asset) {
+                value = asset.principal;
+            } else if ('quantity' in asset && 'current_price' in asset) {
+                value = asset.quantity * asset.current_price;
+            }
+            return sum + value;
+        }, 0);
+
+        const pastTotal = allAssets.reduce((sum, asset) => {
+            const assetDate = new Date(asset.created_at);
+            if (assetDate <= oneMonthAgo) {
+                let value = 0;
+                if ('balance' in asset) {
+                    value = asset.balance;
+                } else if ('principal' in asset) {
+                    value = asset.principal;
+                } else if ('quantity' in asset && 'avg_price' in asset) {
+                    value = asset.quantity * asset.avg_price;
+                }
+                return sum + value;
+            }
+            return sum;
+        }, 0);
+
+        if (pastTotal === 0) return { percentage: 0, isPositive: true };
+        
+        const change = currentTotal - pastTotal;
+        const percentage = (change / pastTotal) * 100;
+        
+        return {
+            percentage: Math.abs(percentage).toFixed(1),
+            isPositive: change >= 0
+        };
+    };
+
+    const monthlyChange = calculateMonthlyChange();
+
     const chartData = [
         { name: 'Savings', value: totalSavings, color: '#a855f7' },
         { name: 'Stocks', value: totalStocks, color: '#06b6d4' },
@@ -109,11 +157,13 @@ export default function DashboardPage() {
                                 {formatCurrency(totalNetWorth)}
                             </h2>
                             <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-positive/10 border border-positive/20 text-positive text-sm font-bold">
-                                    <ArrowUpRight className="w-4 h-4" />
-                                    <span>+12.4% this month</span>
+                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${monthlyChange.isPositive ? 'bg-positive/10 border border-positive/20 text-positive' : 'bg-destructive/10 border border-destructive/20 text-destructive'} text-sm font-bold`}>
+                                    {monthlyChange.isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                                    <span>{monthlyChange.isPositive ? '+' : '-'}{monthlyChange.percentage}% this month</span>
                                 </div>
-                                <span className="text-muted-foreground text-sm font-medium italic">Peak performance detected</span>
+                                <span className="text-muted-foreground text-sm font-medium italic">
+                                    {monthlyChange.isPositive ? 'Portfolio growing' : 'Portfolio declining'}
+                                </span>
                             </div>
                         </div>
                         <div className="hidden md:flex items-center justify-center p-4">
