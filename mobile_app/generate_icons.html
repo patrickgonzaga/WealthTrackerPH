@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate App Icons</title>
+</head>
+<body>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <script>
+        const sizes = [
+            {name: 'mdpi', size: 48},
+            {name: 'hdpi', size: 72},
+            {name: 'xhdpi', size: 96},
+            {name: 'xxhdpi', size: 144},
+            {name: 'xxxhdpi', size: 192}
+        ];
+
+        sizes.forEach(sizeInfo => {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = sizeInfo.size;
+            canvas.height = sizeInfo.size;
+            
+            // Black background
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, sizeInfo.size, sizeInfo.size);
+            
+            // Gold Peso sign
+            ctx.fillStyle = '#FFD700';
+            ctx.font = `bold ${sizeInfo.size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('₱', sizeInfo.size / 2, sizeInfo.size / 2);
+            
+            // Download the image
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ic_launcher_${sizeInfo.name}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        });
+    </script>
+    <p>Icons should download automatically. Check your downloads folder.</p>
+</body>
+</html>
